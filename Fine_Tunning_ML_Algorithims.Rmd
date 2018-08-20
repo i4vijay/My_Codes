@@ -1,0 +1,188 @@
+---
+title: "Untitled"
+author: "Vijay S"
+date: "20 June 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(randomForest)
+library(dplyr)
+library(caret)
+set.seed(100)
+```
+
+```{r}
+hr = read.csv("HR Analytics.csv")
+
+hr$Attrition = as.factor(hr$Attrition)
+hr_train = hr[1:(0.7*nrow(hr)),]
+hr_test = hr[(0.7*nrow(hr)+1):nrow(hr),]
+```
+
+# First Fine Tunning Method - By relaxing the probability of predicting '1'
+```{r}
+model_rf = randomForest(Attrition~., data = hr_train)
+pred_probs = predict(model_rf, newdata = hr_test, type = 'prob')
+hr_test$pred_class = ifelse(pred_probs[,2] > 0.3, 1, 0)
+hr_test$pred_class = as.factor(hr_test$pred_class)
+cm = confusionMatrix(hr_test$pred_class, hr_test$Attrition, positive = '1')
+```
+# 2nd Fine Tuning Method - Through ROC Curves
+```{r}
+### ROC Curves
+library(ROCR)
+library(pROC)
+x = roc(hr_test$Attrition, pred_probs[,2])
+plot(x)
+x$thresholds # Different threshold values from which we have to choose the best optimal value
+```
+### Using KNN
+```{r}
+#convert categorical to numerical column
+#library(caret)
+#hr$Attrition = as.numeric(hr$Attrition)
+#dummy_obj=dummyVars(~.,data = hr %>% select(-Over18))
+#hr_new = data.frame(predict(dummy_obj,newdata = hr %>% select(-Over18)))
+#hr_new
+```
+
+```{r}
+#library(BBmisc)
+#set.seed(100)
+#normalising
+#hr_nor=normalize(hr_new, method='range', range=c(0,1))
+#hr_train_knn = hr_nor[1:(0.7*nrow(hr)),]
+#hr_test_knn = hr_nor[(0.7*nrow(hr)+1):nrow(hr),]
+```
+
+```{r}
+#library(class)
+#library(caret)
+#pred_probs_knn = knn(hr_train_knn %>% select(-Attrition), hr_test_knn %>% select(-Attrition), cl = as.factor(hr_train_knn$Attrition), k = 1, prob = T)
+#probs = data.frame(prob = attr(pred_probs_knn, 'prob'), class = pred_probs_knn)
+#probs[probs['class'] == 0, 'prob'] = 1 - probs[probs['class'] == 0, 'prob']
+#roc_knn = roc(as.factor(hr_test_knn$Attrition), probs$prob)
+#{{plot(x)
+ # lines(roc_knn, col = 'red')
+  #}}
+#cm = confusionMatrix(hr_test_knn$predict,hr_test_knn$Attrition,positive = "1")
+```
+# Finding the Optimal Value
+```{r}
+auc(x)
+auc(roc_knn)
+
+
+pred_obj <- prediction(pred_probs[,2], as.factor(hr_test$Attrition))
+cost.pref = performance(pred_obj, 'cost')
+pred_obj@cutoffs[[1]][which.min(cost.pref@y.values[[1]])]
+
+hr_test$new_class = as.factor(ifelse(pred_probs[,2] > 0.453, 1, 0))
+confusionMatrix(hr_test$new_class, as.factor(hr_test$Attrition), positive = '1')
+```
+# Probability Calibration
+```{r}
+#histogram(pred_probs[pred_probs[,2]> 0.5,2])
+
+mushroom = read.csv("mushroom_full.csv")
+df = mushroom
+hr = read.csv("HR Analytics.csv")
+df = hr
+df$class = as.factor(df$Attrition)
+df = df %>% select(-Attrition)
+set.seed(100)
+train = df[sample(seq(1, nrow(df)),(0.7*nrow(df))),]
+test = df[sample(seq(1, nrow(df)),(0.3*nrow(df))),]
+#test = df[(0.7*nrow(df)+1):nrow(df),]
+df_rf = randomForest(class~., data = train)
+
+pred_probs = predict(df_rf, test, type = 'prob')
+
+#histogram(pred_probs[pred_probs[,2]> 0.5,2])
+
+#pred_class = as.factor(ifelse(pred_probs[,2] > 0.5, 
+ #                             'POISONOUS',
+  #                            'EDIBLE'
+   #                           ))
+#confusionMatrix(pred_class, test$class, positive = 'POISONOUS')
+View(pred_probs)
+
+
+```
+
+
+```{r}
+train_probs = as.data.frame(predict(df_rf, train, type = 'prob'))
+train_probs$class = train$class
+colnames(train_probs) = c('prob_0','prob_1','class')
+calib_model = glm(class~prob_1, data = train_probs, family = binomial)
+calib_model
+
+test_probs = as.data.frame(predict(df_rf, test, type = 'prob'))
+colnames(test_probs) = c('prob_0','prob_1')
+View(test_probs)
+test_probs$prob_1_new = predict(calib_model, test_probs, type = 'response')
+
+test_probs$pred_class = as.factor(ifelse(test_probs$prob_1 > 0.5, 1, 0))
+test_probs$pred_class_new = as.factor(ifelse(test_probs$prob_1_new > 0.5, 1, 0))
+confusionMatrix(test_probs$pred_class_new, test$class, positive = '1')
+
+
+### Updated Threshold
+library(pROC)
+library(ROCR)
+pred_obj = prediction(test_probs[,'prob_1_new'], as.factor(test$class))
+cost.perf = performance(pred_obj, 'cost')
+pred_obj@cutoffs[[1]][which.min(cost.perf@y.values[[1]])]
+m2 = roc(test$class, test_probs$prob_1)
+m1 = roc(test$class, test_probs$prob_1_new)
+
+{{
+  plot(m1)
+  lines(m2, col = 'red')
+}}
+
+
+```
+
+```{r}
+test$prob_pois = pred_probs[,2]
+
+x_vals = c()
+y_vals = c()
+
+
+for (i in seq(0,1,0.05)) {
+  start_bin = i
+  end_bin = i + 0.05
+  x_vals = c(x_vals, (start_bin + end_bin)/2)
+  df_subset = test %>% filter(prob_pois >= start_bin & prob_pois <= end_bin)
+  curr_y = nrow(df_subset %>% filter(class == 'POISONOUS'))/nrow(df_subset)
+  y_vals = c(y_vals,curr_y)
+}
+plot(x_vals, y_vals, type = "l")
+```
+# Cross Validation
+```{r}
+library(caret)
+seed = 7
+control = trainControl(method = "repeatedcv", number = 3, repeats = 2)
+metric = 'Accuracy'
+tunegrid = expand.grid(.mtry = c(5,6,7))
+rf_default = train(class~.,
+                   data = df %>% select(-Over18),
+                   method = "rf",
+                   metric = metric,
+                   trControl = control,
+                   tuneGrid = tunegrid)
+rf_default$results
+```
+```{r}
+pred_probs = as.data.frame(pred_probs)
+pred_probs$class = as.factor(ifelse(pred_probs[,2] > 0.5, 1, 0))
+confusionMatrix(pred_probs$class, test$class)
+pred
+```
+

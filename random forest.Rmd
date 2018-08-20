@@ -1,0 +1,82 @@
+---
+title: "Simple Decision Tree"
+author: "Vijay S"
+date: "16 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(randomForest)
+library(caret)
+library(dplyr)
+library(rpart)
+library(rattle)
+
+hr = read.csv("HR Analytics.csv")
+
+hr$Attrition = as.factor(hr$Attrition)
+hr_train = hr[sample(seq(1, nrow(hr)), (0.7*nrow(hr))),]
+hr_test = hr[sample(seq(1, nrow(hr)), (0.3*nrow(hr))),]
+```
+
+```{r}
+mtry = round(sqrt(length(colnames(hr_train))-1))
+model_rf = randomForest(Attrition~., data = hr_train, ntree = 400, mtry = mtry)
+hr_test$Predicted = predict(model_rf, hr_test)
+cm = confusionMatrix(hr_test$Predicted, hr_test$Attrition, positive = '1')
+cm$overall['Accuracy']*100
+cm$byClass['Sensitivity']*100
+```
+```{r}
+accuracy = c()
+sensitivity = c()
+
+for (i in 1:400) {
+  mtry = round(sqrt(length(colnames(hr_train))-1))
+  model_rf = randomForest(Attrition~., data = hr_train, ntree = i, mtry = mtry)
+  hr_test$Predicted = predict(model_rf, hr_test)
+  cm = confusionMatrix(hr_test$Predicted, hr_test$Attrition, positive = '1')
+  accuracy = c(accuracy, cm$overall['Accuracy']*100)
+  sensitivity = c(sensitivity, cm$byClass['Sensitivity']*100)
+}
+View(accuracy)
+View(sensitivity)
+plot(accuracy, type = "l")
+```
+# Building our own RF manually
+```{r}
+input_predictors = colnames(hr_train %>% select(-Attrition))
+
+mtry = round(sqrt(length(input_predictors)))
+
+ntree = 400
+result = data.frame(actual = hr_test$Attrition)
+for (i in seq(1,ntree)) {
+  sample_predictors = input_predictors[sample(1:length(input_predictors), mtry)]
+  sample_index = sample(seq(1, nrow(hr_train)), (0.6*nrow(hr_train)))
+  sample_data = hr_train[sample_index, c(sample_predictors, 'Attrition')]
+  curr_model = rpart(Attrition~., data = sample_data)
+  result[,paste0('tree_',i,collapse = '')] = predict(curr_model, hr_test %>% dplyr::select(sample_predictors), type = 'class')
+}
+
+result$count_0 = rowSums((result %>% dplyr::select(-actual)) == 0)
+result$count_1 = rowSums((result %>% dplyr::select(-actual)) == 1)
+
+result$final = ifelse(result$count_0 > result$count_1, 0 , 1)
+View(result)
+```
+
+
+```{r}
+library(adabag)
+model_boost = boosting(Attrition~., data = hr_train)
+predict_obj = predict(model_boost, hr_test)
+hr_test$pred = predict_obj$class
+hr_test$Attrition = as.factor(hr_test$Attrition)
+hr_test$pred = as.factor(hr_test$pred)
+confusionMatrix(hr_test$pred, hr_test$Attrition, positive = '1')
+
+
+```
+

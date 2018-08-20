@@ -1,0 +1,43 @@
+---
+title: "Rcommendation Systems"
+author: "Vijay S"
+date: "22 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(arules)
+data("Groceries")
+Groceries
+```
+# inspecting the transactions in groceries
+```{r}
+inspect(Groceries[1])
+```
+
+# apriori  model
+```{r}
+model = apriori(data = Groceries, parameter = list(support = 0.03, confidence = 0.3))
+inspect(model)
+df = as.data.frame(inspect(model))
+```
+
+# How to create a transcation in R
+```{r}
+x = list(c('a','b','c'), c('a','d'),c('e','a','c'),c('e','b'))
+x_trans = as(x, 'transactions')
+x_trans
+inspect(x_trans)
+```
+
+```{r}
+model = apriori(x_trans, parameter = list(support = 0, confidence = 0))
+inspect(sort(model,decreasing = T, by = "lift"))
+```
+```{r}
+model = apriori(Groceries, parameter = list(support = (30/9835), confidence = 0.5))
+inspect(sort(model, by = "lift")[1:10])
+
+```
+

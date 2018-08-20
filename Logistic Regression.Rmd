@@ -1,0 +1,49 @@
+---
+title: "Untitled"
+author: "Vijay S"
+date: "9 August 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(MASS)
+data("Pima.te")
+data <- Pima.te
+?Pima.te
+View(data)
+colSums(is.na(data))
+str(data)
+library(corrplot)
+library(dplyr)
+mat = cor(data %>% select(-type))
+corrplot(mat, method = "pie",type = "upper")
+```
+
+```{r}
+data$Dia = ifelse(data$type == "Yes",1,0)
+```
+```{r}
+library(caTools) # used to split
+split = sample.split(data, SplitRatio = 0.7)
+split
+```
+```{r}
+
+ltrain = data[sample(1:332, 0.7*nrow(data)),]
+ltest = data[sample(1:332, 0.3*nrow(data)),]
+nrow(data)
+nrow(ltrain)
+nrow(ltest)
+```
+
+```{r}
+model = glm(Dia~., data = ltrain %>% select(npreg,glu,Dia),family = "binomial")
+summary(model)
+pred = predict(model, ltest, type = "response")
+table(AV = ltest$type, PV = ltest$Dia)
+```
+

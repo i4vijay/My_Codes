@@ -1,0 +1,33 @@
+---
+title: "User Based Collabrative Filtering"
+author: "Vijay S"
+date: "22 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(reshape2)
+library(recommenderlab)
+library(dplyr)
+```
+
+
+```{r}
+movies = read.csv("movies.csv")
+rating = read.csv("ratings.csv")
+length(unique(rating$userId)) # Totally 671 users
+length(unique(rating$movieId)) # Totally 9066 movies
+
+ratings_matrix = as.matrix(dcast(data = rating, userId~movieId, value.var = 'rating'))
+ranking_matrix = as(ratings_matrix[,-1], 'realRatingMatrix')
+
+
+ubcf = Recommender(ranking_matrix, method = 'UBCF', param = list(method = 'Cosine', nn = 10))
+
+
+result = predict(ubcf, ranking_matrix[1, ], n = 5)
+movies_sugg = as(result, "list")[[1]]
+movies %>% filter(movieId %in% movies_sugg) %>% select(title)
+```
+

@@ -1,0 +1,111 @@
+---
+title: "K Means Algorithim"
+author: "Vijay S"
+date: "18 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(BBmisc)
+```
+
+
+```{r}
+odi =  read.csv("odi-batting.csv")
+odi$century = ifelse(odi$Runs > 99, 1, 0)
+odi$ducks = ifelse(odi$Runs == 0, 1, 0)
+odi$above_150 = ifelse(odi$Runs > 149, 1, 0)
+odi$fifties = ifelse(odi$Runs > 49, 1, 0)
+odi$missed_centuries = ifelse(odi$Runs > 90 & odi$Runs < 100, 1, 0)
+View(odi)
+```
+
+
+```{r}
+player_summary = odi %>% group_by(Player) %>% summarise(martches = n(),
+                                                        total_runs = sum(Runs, na.rm = T),
+                                                        avg_runs = mean(Runs, na.rm = T),
+                                                        centuries = sum(century, na.rm = T),
+                                                        ducks = sum(ducks, na.rm = T),
+                                                        fifties = sum(fifties, na.rm = T),
+                                                        above_150 = sum(above_150, na.rm = T),
+                                                        missed_centuries = sum(missed_centuries, na.rm = T))
+View(player_summary)
+```
+
+
+```{r}
+top_players = player_summary %>% arrange(-total_runs) %>% head(100)
+data_kmeans = top_players %>% select(-Player)
+data_norm = normalize(data_kmeans, range = c(0,1), method = 'range')
+model_kmeans = kmeans(data_norm, centers = 10)
+top_players$cluster = model_kmeans$cluster
+data_norm$cluster = model_kmeans$cluster
+barplot(table(top_players$cluster))
+
+```
+
+# Cluster characteristics
+```{r}
+model_kmeans$centers
+```
+# Within square sums
+```{r}
+model_kmeans$withinss
+```
+
+## Between square sums
+```{r}
+model_kmeans$betweenss
+```
+## Plotting totalwithinss Vs Number of clusters
+```{r}
+model_kmeans$tot.withinss
+```
+
+```{r}
+View(top_players)
+dim(data_norm)
+data_norm_2d = as.data.frame(cmdscale(dist(data_norm %>% select(-cluster))))
+plot(data_norm_2d)
+data_norm_2d$cluster = as.factor(data_norm$cluster)
+library(ggplot2)
+ggplot(data_norm_2d, aes(x = V1, y = V2, color = cluster)) + geom_point()
+
+```
+
+```{r}
+hr=read.csv("HR Analytics.csv")
+hr_sub = hr %>% select(Age, MonthlyIncome)
+hr_sub$Age = as.numeric(hr_sub$Age)
+
+hr_norm = normalize(hr_sub, method = 'range', range = c(0,1))
+model_hr = kmeans(hr_norm, centers = 2)
+hr_sub$cluster = as.factor(model_hr$cluster)
+ggplot(hr_sub, aes(x = Age, y = MonthlyIncome, color = cluster)) + geom_jitter()
+
+
+
+```
+
+## Hierachical Clustering - It can also be used check if there is any hierachy in the rows as well
+```{r}
+hclust_model = hclust(dist(data_norm %>% select(-cluster)))
+plot(hclust_model)
+
+```
+## Get cluster labels
+```{r}
+data_norm$cluster = cutree(hclust_model, k = 4)
+
+data_norm_2d = cmdscale(dist(data_norm %>% select(-cluster)))
+data_norm_2d = as.data.frame(data_norm_2d)
+data_norm_2d$cluster = as.factor(data_norm$cluster)
+
+ggplot(data_norm_2d, aes(x = V1, y = V2, color = cluster)) + geom_point()
+plot(data_norm_2d)
+
+```
+

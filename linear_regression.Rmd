@@ -1,0 +1,160 @@
+---
+title: "Linear Regression"
+author: "Kathirmani Sukumar"
+date: "April 26, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(plotly)
+library(ggplot2)
+adv = read.csv('Advertising.csv')
+names(adv)
+ggplot(adv, aes(x=TV, y=sales)) + geom_point() + geom_smooth(method = 'lm')
+```
+
+```{r}
+adv_training = adv[sample(seq(1,200), 0.8*nrow(adv)),]
+adv_testing = adv[sample(seq(1,200), 0.2*nrow(adv)),]
+adv_model = lm(sales~TV, data=adv_training)
+adv_model
+```
+
+```{r}
+mse = function(x, y, m, c){
+  yhat = m * x + c
+  error = sum((y - yhat) ^ 2) / length(x)
+  return (error)
+}
+
+iterations = 100
+cspace = seq(1,15,length.out = iterations)
+mspace = seq(-0.6,0.6, length.out = iterations)
+zspace = c()
+for (i in mspace){
+  for (j in cspace){
+    zspace = c(zspace, mse(adv_training$TV,
+                           adv_training$sales,
+                           i, j))
+  }
+}
+zmat = matrix(zspace, iterations, iterations)
+library(plotly)
+plot_ly(x = mspace, y = cspace, z = zmat) %>% add_surface()
+```
+
+## Gradient Descent
+```{r}
+x = rnorm(100)
+y = 0.05 * x
+df = data.frame(x=x, y=y)
+
+View(df)
+lm(y~x, data=df)
+```
+
+```{r}
+library(dplyr)
+m = 100
+alpha = 0.1
+iterations = 1000
+errors_vals = c()
+for (i in seq(1, iterations)){
+  df = mutate(df, mx_vals = m * x)
+  df = mutate(df, y_mx_vals = (y - mx_vals)^2)
+  curr_error = sum(df$y_mx_vals) / nrow(df)
+  errors_vals = c(errors_vals, curr_error)
+  df = mutate(df, xy_vals= x * y)
+  df = mutate(df, mx_square = m * (x^2))
+  df = mutate(df, xy_minus_mx2 = xy_vals - mx_square)
+  m_gradient = -2/nrow(df) * sum(df$xy_minus_mx2)
+  m = m - alpha * m_gradient
+}
+plot(errors_vals)
+```
+
+```{r}
+y = 0.05 * x + 100
+df = data.frame(x=x, y=y)
+alpha = 1 / nrow(df)
+m = 0
+c1 = 0
+iterations = 500
+m_vals = c()
+c1_vals = c()
+error_vals = c()
+for (i in seq(1, iterations)){
+  m_vals = c(m_vals, m)
+  c1_vals = c(c1_vals, c1)
+  df = mutate(df, e = (y - m * x - c1)^2)
+  df = mutate(df, msigma = (x * y) - (m * x ^2) - (c1 * x))
+  df = mutate(df, c1sigma = y - m * x - c1)
+  error_vals = c(error_vals, sum(df$e)/nrow(df))
+  m_gradient = -2 / nrow(df) * sum(df$msigma)
+  c1_gradient = -2 / nrow(df) * sum(df$c1sigma)
+  m = m - alpha * m_gradient
+  c1 = c1 - alpha * c1_gradient
+}
+
+
+print(list(m=m, c=c1))
+plot(error_vals)
+```
+
+```{r}
+library(rgl)
+cuts = 100
+c_ranges = seq(0,150,length.out = cuts)
+m_ranges = seq(0,5, length.out = cuts)
+zspace = c()
+mspace = c()
+cspace = c()
+for (i in m_ranges){
+  for (j in c_ranges){
+    curr_z = sum((df$y - i * df$x - j)^2) / nrow(df)
+    zspace = c(zspace, curr_z)
+    mspace = c(mspace, i)
+    cspace = c(cspace, j)
+  }
+}
+open3d()
+plot3d(x=mspace, y=cspace, z=zspace, col = heat.colors(10))
+plot3d(x=m_vals, y=c1_vals, z=error_vals, add=T)
+```
+
+
+```{r}
+adv = read.csv('e:/ml/Advertising.csv')
+df = data.frame(x=scale(adv$TV), y=adv$sales)
+alpha = 1 / nrow(df)
+m = 0
+c1 = 0
+iterations = 500
+m_vals = c()
+c1_vals = c()
+error_vals = c()
+for (i in seq(1, iterations)){
+  m_vals = c(m_vals, m)
+  c1_vals = c(c1_vals, c1)
+  df = mutate(df, e = (y - m * x - c1)^2)
+  df = mutate(df, msigma = (x * y) - (m * x ^2) - (c1 * x))
+  df = mutate(df, c1sigma = y - m * x - c1)
+  error_vals = c(error_vals, sum(df$e)/nrow(df))
+  m_gradient = -2 / nrow(df) * sum(df$msigma)
+  c1_gradient = -2 / nrow(df) * sum(df$c1sigma)
+  m = m - alpha * m_gradient
+  c1 = c1 - alpha * c1_gradient
+}
+
+
+print(list(m=m, c=c1))
+```
+```{r}
+lm(y~x, data=df)
+```
+

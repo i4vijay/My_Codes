@@ -1,0 +1,211 @@
+---
+title: "Untitled"
+author: "Vijay S"
+date: "14 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(dplyr)
+```
+
+```{r}
+
+hr = read.csv("HR Analytics.csv")
+```
+
+```{r}
+model = rpart(Attrition~Gender+OverTime, data = hr)
+fancyRpartPlot(model)
+```
+```{r}
+model_1 = rpart(Attrition~MonthlyIncome, data = hr)
+fancyRpartPlot(model_1)
+```
+
+## To find Cuts
+```{r}
+u = unique(hr$MonthlyIncome)
+s = sort(u)
+
+ag = unique(hr$Age)
+ags = sort(ag)
+
+ms = unique(hr$MaritalStatus)
+mss = sort(ms)
+```
+
+```{r}
+## To find the cuts
+i = 1
+j = 2
+avg = c()
+while(i < length(s)){
+  avg = c(avg, (s[i] + s[j]) / 2)
+  i = i+1
+  j = j+1
+}
+
+
+
+```
+```{r}
+## To find the cuts
+i = 1
+j = 2
+avg_1 = c()
+while(i < length(ags)){
+  avg_1 = c(avg, (ags[i] + ags[j]) / 2)
+  i = i+1
+  j = j+1
+}
+```
+
+## Numerical Input
+```{r}
+
+N = nrow(hr)
+GIs = c()
+
+for (cut in avg) {
+  samples_left = hr %>% filter(MonthlyIncome < cut)
+  samples_right = hr %>% filter(MonthlyIncome > cut)
+  
+  NL = nrow(samples_left)
+  NR = nrow(samples_right)
+  
+  # GI for left side
+  GI_Left = 1 - (nrow(samples_left %>% filter(Attrition == 0))/NL)^2 - (nrow(samples_left %>% filter(Attrition == 1))/NL)^2
+  
+  # GI for right side
+  GI_right = 1 - (nrow(samples_right %>% filter(Attrition == 0))/NR)^2 - (nrow(samples_right %>% filter(Attrition == 1))/NR)^2
+  
+  # Overall GI
+  GI = (NL/N*GI_Left) + (NR/N*GI_right)
+  GIs = c(GIs, GI)
+}
+
+result = data.frame(Predictor = rep("MonthlyIncome", length(avg)), cut = avg, GI = GIs)
+
+result %>% arrange(GIs) %>% head(1)
+
+```
+
+```{r}
+temp = hr %>% filter(MonthlyIncome < 2802)
+N = nrow(temp)
+GIs = c()
+
+for (cut in avg) {
+  samples_left = temp %>% filter(MonthlyIncome < cut)
+  samples_right = temp %>% filter(MonthlyIncome > cut)
+  
+  NL = nrow(samples_left)
+  NR = nrow(samples_right)
+  
+  # GI for left side
+  GI_Left = 1 - (nrow(samples_left %>% filter(Attrition == 0))/NL)^2 - (nrow(samples_left %>% filter(Attrition == 1))/NL)^2
+  
+  # GI for right side
+  GI_right = 1 - (nrow(samples_right %>% filter(Attrition == 0))/NR)^2 - (nrow(samples_right %>% filter(Attrition == 1))/NR)^2
+  
+  # Overall GI
+  GI = (NL/N*GI_Left) + (NR/N*GI_right)
+  GIs = c(GIs, GI)
+}
+
+result = data.frame(Predictor = rep("MonthlyIncome", length(avg)), cut = avg, GI = GIs)
+
+result %>% arrange(GIs) %>% head(1)
+```
+
+## More numerical columns as inputs
+```{r}
+
+model_2 = rpart(Attrition~MonthlyIncome+Age, data = hr)
+fancyRpartPlot(model_2)
+```
+
+# Afternoon session to discuss
+
+```{r}
+N = nrow(hr)
+GIs = c()
+cuts = c(avg, avg_1)
+preds = c(rep('MonthlyIncome', length(avg)), rep('Age', length(avg_1)))
+
+for (cut in cuts) {
+  samples_left = hr %>% filter(MonthlyIncome < cut)
+  samples_right = hr %>% filter(MonthlyIncome > cut)
+  
+  NL = nrow(samples_left)
+  NR = nrow(samples_right)
+  
+  # GI for left side
+  GI_Left = 1 - (nrow(samples_left %>% filter(Attrition == 0))/NL)^2 - (nrow(samples_left %>% filter(Attrition == 1))/NL)^2
+  
+  # GI for right side
+  GI_right = 1 - (nrow(samples_right %>% filter(Attrition == 0))/NR)^2 - (nrow(samples_right %>% filter(Attrition == 1))/NR)^2
+  
+  # Overall GI
+  GI = (NL/N*GI_Left) + (NR/N*GI_right)
+  GIs = c(GIs, GI)
+}
+
+result = data.frame(Predictor = rep("MonthlyIncome", length(avg)), cut = avg, GI = GIs)
+
+result %>% arrange(GIs) %>% head(1)
+
+```
+
+## Multiclass input
+
+```{r}
+
+model_3 = rpart(Attrition~MaritalStatus, data = hr)
+fancyRpartPlot(model_3)
+```
+
+```{r}
+N = nrow(hr)
+GIs = c()
+
+for (status in ms) {
+  samples_left = hr %>% filter(MaritalStatus == status)
+  samples_right = hr %>% filter(MaritalStatus != status)
+  
+  NL = nrow(samples_left)
+  NR = nrow(samples_right)
+  
+  # GI for left side
+  GI_Left = 1 - (nrow(samples_left %>% filter(Attrition == 0))/NL)^2 - (nrow(samples_left %>% filter(Attrition == 1))/NL)^2
+  
+  # GI for right side
+  GI_right = 1 - (nrow(samples_right %>% filter(Attrition == 0))/NR)^2 - (nrow(samples_right %>% filter(Attrition == 1))/NR)^2
+  
+  # Overall GI
+  GI = (NL/N*GI_Left) + (NR/N*GI_right)
+  GIs = c(GIs, GI)
+}
+
+result = data.frame(left = ms, GI = GIs)
+
+result %>% arrange(GIs)
+```
+
+# For Job Role Column
+```{r}
+job_unique = unique(hr$JobRole)
+job_unique
+#for(i in combn(job_unique, 1, simplify = F)) {
+ # jobs_left = i[[1]]
+#  print(jobs_left)
+#}
+
+```
+
+

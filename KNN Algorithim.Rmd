@@ -1,0 +1,80 @@
+---
+title: "KNN Algorithm"
+author: "Vijay S"
+date: "17 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+data("iris")
+```
+
+```{r}
+k = round(sqrt(nrow(iris)))
+```
+```{r}
+View(iris)
+library(dplyr)
+iris_train = iris[sample(1:nrow(iris),0.8*nrow(iris)),]
+iris_test = iris[sample(1:nrow(iris),0.2*nrow(iris)),]
+
+dist = data.frame()
+dist = c()
+sp =  c()
+for (i in 1:nrow(iris_test)) {
+  for (j in 1:nrow(iris_train)) {
+    dist =cbind(i,j, dist=round(sqrt(sum(iris_train[j,-5] - iris_test[i,-5])^2)), species = iris_train[j,5])
+    sp = data.frame(rbind(sp,dist))
+  }
+}
+sp
+
+s = sp %>% arrange_(~(dist)) %>% group_by_(~i) %>% do(head(., n = 12))
+sg = as.data.frame(s %>% group_by(i,species) %>% summarise(Count = n()))
+pred = 0
+for (i in 1:nrow(iris_test)) {
+  pred[i]=sg[sg$i==i,] %>% arrange(-Count) %>% head(1)["species"]
+}
+View(pred)
+
+predicted = ifelse(pred==1,"setosa",ifelse(pred==2,"versicolor","virginica"))
+sum(predicted==iris_test$Species)/nrow(iris_test)*100
+
+```
+```{r}
+hr=read.csv("HR Analytics.csv")
+str(hr)
+```
+
+```{r}
+#convert categorical to numerical column
+library(caret)
+dummy_obj=dummyVars(~.,data = hr %>% select(-Over18))
+hr_new = data.frame(predict(dummy_obj,newdata = hr))
+hr_new
+```
+
+```{r}
+library(BBmisc)
+#normalising
+hr_nor=normalize(hr_new,method='range',range=c(0,1))
+hr_train=hr_nor[sample(seq(1,nrow(hr_nor)),(0.7*nrow(hr_nor))),]
+hr_test=hr_nor[sample(seq(1,nrow(hr_nor)),(0.3*nrow(hr_nor))),]
+```
+
+```{r}
+library(class)
+library(caret)
+hr_test$predict=knn(hr_train,hr_test,cl=as.factor(hr_train$Attrition),k=1)
+hr_test$Attrition=as.factor(hr_test$Attrition)
+hr_test$predict=as.factor(hr_test$predict)
+cm = confusionMatrix(hr_test$predict,hr_test$Attrition,positive = "1")
+```
+
+
+
