@@ -1,5 +1,5 @@
 ---
-title: "Assignment No.1 - LEAD.csv Dataset"
+title: "LEAD_Propensity_Model"
 author: "Vijay S"
 date: "9 August 2018"
 output: html_document
@@ -9,47 +9,48 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 
 library(dplyr)
-setwd("E:/PGDDS/Marketing/Advanced Martketing Analysis/Case Study")
+setwd("E:/PGDDS/Marketing/Advanced Martketing Analysis/Case Study/Assignment_No.1")
 lead = read.csv("LEAD.csv")
 ```
 
-# View the structure of dataset
+### View the structure of dataset
 ```{r}
 str(lead)
+dim(lead)
 ```
 
-# Correlation analysis
+### Correlation analysis
 ```{r, warning=FALSE}
 library(corrplot)
 matr = cor(lead)
 corrplot(matr, method = "pie", type = "upper")
 ```
 
-# Convert dependent variable to categorical column
+### Convert dependent variable to categorical column
 ```{r}
 lead$PURCHASE = as.factor(lead$PURCHASE)
 ```
 
-# Check for NA values
+### Check for NA values
 ```{r}
 colSums(is.na(lead))
 ```
 
-# Split into training and test dataset
+### Split into training and test dataset
 ```{r}
 lead_df = lead 
 lead_train = lead_df[sample(seq(1,nrow(lead_df)),(0.6*nrow(lead_df))),]
 lead_test = lead_df[sample(seq(1,nrow(lead_df)),(0.4*nrow(lead_df))),]
 ```
 
-# Logistic Regression
+### Logistic Regression
 ```{r, warning=FALSE}
 library(class)
 lead_model = glm(PURCHASE~OWN_HOUSE+CAR_LOAN+HEART_DISEASE+DIABETES+OTHER_INSURANCE+CHILDREN, data = lead_train, family = "binomial")
 summary(lead_model)
 ```
 
-# Predict whether the customer will purchase or not
+### Predict whether the customer will purchase or not
 ```{r}
 lead_test$predict = predict(lead_model, lead_test, type = "response")
 lead_test$predict = ifelse(lead_test$predict > 0.4, 1, 0)
@@ -57,14 +58,14 @@ lead_test$predict = as.factor(lead_test$predict)
 lead_test$PURCHASE = as.factor(lead_test$PURCHASE)
 ```
 
-# Check for accuracy using Confusion Matrix
+### Check for accuracy using Confusion Matrix
 ```{r, warning=FALSE}
 library(caret)
 cm = confusionMatrix(lead_test$predict, lead_test$PURCHASE, positive = "1")
 cm
 ```
 
-# Accuracy of the Model
+### Accuracy of the Model
 ```{r}
 round(cm$overall['Accuracy']*100,2)
 ```
